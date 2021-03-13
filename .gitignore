@@ -1,3 +1,5 @@
-__venv__/
+venv/
 .idea/
 *.pyc
+credentials.json
+token.json
