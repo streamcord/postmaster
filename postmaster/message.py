@@ -1,40 +1,36 @@
-import base64
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from googleapiclient.discovery import Resource
+from html2text import HTML2Text
 from jinja2 import Template
 
+html_parser = HTML2Text()
 
-def build_from_template(source: str, ctx: dict = None) -> MIMEText:
+
+def build_from_template(source: str, jinja_env: dict = None) -> MIMEMultipart:
     """
-    Load a file and render its Jinja template.
+    Build an email from a Jinja template and create a MIMEMultipart containing the resulting HTML and alternative text.
 
     :param source: Path to the template file.
-    :param ctx: Jinja context.
-    :return: The resulting MIMEText.
+    :param jinja_env: Jinja context.
+    :return: A MIMEMultipart containing the rendered message.
     """
 
-    ctx = ctx or {}
+    jinja_env = jinja_env or {}
+
+    multipart = MIMEMultipart('alternative')
 
     with open(source, 'r') as f:
         html = f.read()
-        template = Template(html)
-        html = template.render(**ctx)
 
-        return MIMEText(html, 'html')
+    template = Template(html)
 
+    html = template.render(**jinja_env)
+    html_mime = MIMEText(html, 'html')
+    multipart.attach(html_mime)
 
-def send_message(service: Resource, message: MIMEText) -> dict:
-    """
-    Send an email via the gmail API.
+    # generate alt text from HTML
+    text = html_parser.handle(html)
+    text_mime = MIMEText(text, 'text')
+    multipart.attach(text_mime)
 
-    :param service: The gmail API manager.
-    :param message: The message content.
-    :return: Information about the message sent.
-    """
-
-    raw = {'raw': base64.urlsafe_b64encode(message.as_string().encode('utf-8')).decode('utf-8')}
-    from_addr = message['from'].split('<')[1].split('>')[0]
-
-    message = service.users().messages().send(userId=from_addr, body=raw).execute()
-    print(message['id'])
-    return message
+    return multipart

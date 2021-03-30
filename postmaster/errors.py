@@ -1,0 +1,2 @@
+class InvalidSenderError(Exception):
+    pass
